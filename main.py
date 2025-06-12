@@ -25,20 +25,29 @@ def webhook():
     params = req['queryResult'].get('parameters', {})
     session_id = req['session']
 
+    print(f"[Intent] {intent}")
+    print(f"[Params] {params}")
+
+    # Ensure session entry
+    if session_id not in sessions:
+        sessions[session_id] = {}
+
+    # Address update flow
     if intent == 'UpdateAddress':
+        sessions[session_id] = {}  # Clear previous data
         return jsonify({"fulfillmentText": "Please log in first. What is your username?"})
 
     elif intent == 'CaptureUsername':
         username = params.get('username')
         if username in users:
-            sessions[session_id] = {"username": username}
+            sessions[session_id]["username"] = username
             return jsonify({"fulfillmentText": "Please enter your password"})
         else:
             return jsonify({"fulfillmentText": "Username not found. Please try again."})
 
     elif intent == 'CapturePassword':
         password = params.get('password')
-        username = sessions.get(session_id, {}).get("username")
+        username = sessions[session_id].get("username")
 
         if username and users[username]["password"] == password:
             sessions[session_id]["authenticated"] = True
@@ -48,15 +57,16 @@ def webhook():
 
     elif intent == 'CaptureNewAddress':
         new_address = params.get("address")
-        user_session = sessions.get(session_id, {})
+        session = sessions.get(session_id, {})
 
-        if user_session.get("authenticated"):
-            username = user_session.get("username")
+        if session.get("authenticated"):
+            username = session.get("username")
             users[username]["address"] = new_address
             return jsonify({"fulfillmentText": f"Address updated to: {new_address} for user {username}"})
         else:
             return jsonify({"fulfillmentText": "Please log in first."})
 
+    # Order status flow
     elif intent == 'CheckOrderStatus':
         order_number = params.get("order_number")
         if order_number in orders:
@@ -65,6 +75,7 @@ def webhook():
         else:
             return jsonify({"fulfillmentText": "Invalid order number. Please provide a valid one."})
 
+    # Refund flow
     elif intent == 'RequestRefund':
         order_number = params.get("order_number")
         reason = params.get("refund_reason")
@@ -77,5 +88,6 @@ def webhook():
 
     return jsonify({"fulfillmentText": f"Unhandled intent: {intent}"})
 
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
